@@ -5,11 +5,7 @@ class Trade:
         segment,
         trade_number,
         trade_time,
-        symbol,
-        instrument,
-        expiry_date,
-        strike_price,
-        option_type,
+        identifier,
         trade_price,
         trade_quantity,
         buy_order_number,
@@ -17,7 +13,7 @@ class Trade:
         buy_client,
         sell_order_number,
         sell_algo,
-        sell_client
+        sell_client,
     ):
 
         # Standard Identifiers
@@ -27,11 +23,7 @@ class Trade:
         self.trade_time = trade_time
 
         # Instrument Details
-        self.symbol = symbol
-        self.instrument = instrument
-        self.expiry_date = expiry_date
-        self.strike_price = strike_price
-        self.option_type = option_type
+        self.identifier = identifier
 
         # Trade Details
         self.trade_price = trade_price
@@ -47,7 +39,6 @@ class Trade:
         self.sell_algo = sell_algo % 2
         self.sell_client_identity = sell_client
 
-
     def __repr__(self):
         cls = self.__class__.__name__
-        return f"{cls}(id={self.trade_number}, sym={self.symbol}, price={self.trade_price}, qty={self.trade_quantity})"
+        return f"{cls}(num={self.trade_number}, id={self.identifier}, price={self.trade_price}, qty={self.trade_quantity})"

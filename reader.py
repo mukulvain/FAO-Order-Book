@@ -1,34 +1,31 @@
 import gzip
-from datetime import datetime, timedelta
 
 from Order import Order
 from Trade import Trade
 
 
 class AlphaNumeric:
+    __slots__ = ("length",)
+
     def __init__(self, length):
-        self.value_type = str
         self.length = length
 
 
 class Numeric:
+    __slots__ = ("length",)
+
     def __init__(self, length):
-        self.value_type = int
         self.length = length
 
 
-order = [
+ORDER_SCHEMA = [
     AlphaNumeric(2),
     AlphaNumeric(4),
     Numeric(16),
     Numeric(14),
     AlphaNumeric(1),
     Numeric(1),
-    AlphaNumeric(10),
-    AlphaNumeric(6),
-    AlphaNumeric(9),
-    AlphaNumeric(8),
-    AlphaNumeric(2),
+    AlphaNumeric(35),
     Numeric(8),
     Numeric(8),
     Numeric(8),
@@ -42,16 +39,12 @@ order = [
     AlphaNumeric(1),
 ]
 
-trade = [
+TRADE_SCHEMA = [
     AlphaNumeric(2),
     AlphaNumeric(4),
     Numeric(17),
     Numeric(14),
-    AlphaNumeric(10),
-    AlphaNumeric(6),
-    AlphaNumeric(9),
-    AlphaNumeric(8),
-    AlphaNumeric(2),
+    AlphaNumeric(35),
     Numeric(8),
     Numeric(8),
     Numeric(16),
@@ -63,28 +56,47 @@ trade = [
 ]
 
 
-def to_order(line):
+def _build_slices(schema):
+    slices = []
     ptr = 0
-    order_args = []
-    for var in order:
-        order_args.append(var.value_type(line[ptr : ptr + var.length]))
-        ptr += var.length
-    return Order(*order_args)
+    for field in schema:
+        start = ptr
+        end = ptr + field.length
+        slices.append((start, end, field))
+        ptr = end
+    return slices
 
 
-def to_trade(line):
-    ptr = 0
-    trade_args = []
-    for var in trade:
-        trade_args.append(var.value_type(line[ptr : ptr + var.length]))
-        ptr += var.length
-    return Trade(*trade_args)
+ORDER_SLICES = _build_slices(ORDER_SCHEMA)
+TRADE_SLICES = _build_slices(TRADE_SCHEMA)
+
+
+def to_order(line: bytes) -> Order:
+    args = []
+    for start, end, field in ORDER_SLICES:
+        chunk = line[start:end]
+        if isinstance(field, Numeric):
+            args.append(int(chunk))
+        else:
+            args.append(chunk.decode("ascii"))
+    return Order(*args)
+
+
+def to_trade(line: bytes) -> Trade:
+    args = []
+    for start, end, field in TRADE_SLICES:
+        chunk = line[start:end]
+        if isinstance(field, Numeric):
+            args.append(int(chunk))
+        else:
+            args.append(chunk.decode("ascii"))
+    return Trade(*args)
 
 
 def line_reader(file_path):
-    with gzip.open(file_path, "rt") as file:
+    with gzip.open(file_path, "rb") as file:
         for line in file:
-            yield line.strip()
+            yield line.rstrip(b"\n")
 
 
 def get_trade(trade_reader):
@@ -99,17 +111,3 @@ def get_order(order_reader):
         return to_order(next(order_reader))
     except StopIteration:
         return None
-
-
-def clock_time(jiffies):
-    epoch = datetime(1980, 1, 1)
-    seconds = jiffies / 65536
-    timestamp = epoch + timedelta(seconds=seconds)
-    return timestamp.time()
-
-
-def add_time(timestamp, interval):
-    datetimestamp = datetime.combine(datetime.today(), timestamp) + timedelta(
-        seconds=interval
-    )
-    return datetimestamp.time()

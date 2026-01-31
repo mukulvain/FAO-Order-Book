@@ -7,11 +7,7 @@ class Order:
         order_time,
         buy_sell_indicator,
         activity_type,
-        symbol,
-        instrument,
-        expiry_date,
-        strike_price,
-        option_type,
+        identifier,
         volume_disclosed,
         volume_original,
         limit_price,
@@ -37,11 +33,7 @@ class Order:
         self.activity_type = self.activities[activity_type]
 
         # Instrument Details
-        self.symbol = symbol
-        self.instrument = instrument
-        self.expiry_date = expiry_date
-        self.strike_price = strike_price
-        self.option_type = option_type
+        self.identifier = identifier
 
         # Specifics
         self.volume_disclosed = (
@@ -62,4 +54,4 @@ class Order:
 
     def __repr__(self):
         cls = self.__class__.__name__
-        return f"{cls}(id={self.order_number}, sym={self.symbol}, instr={self.instrument}, price={self.limit_price})"
+        return f"{cls}(num={self.order_number}, id={self.identifier}, price={self.limit_price})"

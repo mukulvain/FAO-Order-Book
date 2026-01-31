@@ -3,33 +3,46 @@ import csv
 from Structs import DATA_POINTS
 
 
-def write_header(filename, period=True):
-    clients = ["C", "P", "R"]
-    is_algo = ["A", "NA"]
-    is_buy = ["Bid", "Ask"]
-    volumes = ["ActQ", "DiscQ"]
-    header_list = []
-    for buy in is_buy:
-        for volume in volumes:
-            for point in DATA_POINTS:
-                for algo in is_algo:
-                    for client in clients:
-                        header_list.append(
-                            client + algo + "_" + buy + "_" + str(point) + volume
-                        )
-        header_list.append("best_" + buy)
-        for algo in is_algo:
-            for client in clients:
-                header_list.append(client + algo + "_best_" + buy)
-    header_list += [
-        "spread",
-        "period",
-        "date",
-        "symbol",
-        "instrument",
-        "expiry",
-        "strike",
-        "option_type",
-    ]
-    with open(filename, mode="w", newline="") as file:
-        csv.DictWriter(file, delimiter=",", fieldnames=header_list).writeheader()
+def write_header(filename):
+    clients = ("C", "P", "R")
+    algos = ("A", "NA")
+    sides = ("Bid", "Ask")
+    volumes = ("ActQ", "DiscQ")
+
+    points = tuple(str(p) for p in DATA_POINTS)
+
+    header = []
+
+    # Main depth columns
+    header.extend(
+        f"{client}{algo}_{side}_{point}{vol}"
+        for side in sides
+        for vol in volumes
+        for point in points
+        for algo in algos
+        for client in clients
+    )
+
+    # Best bid / ask
+    for side in sides:
+        header.append(f"best_{side}")
+        header.extend(
+            f"{client}{algo}_best_{side}" for algo in algos for client in clients
+        )
+
+    # Metadata
+    header.extend(
+        (
+            "spread",
+            "period",
+            "date",
+            "symbol",
+            "instrument",
+            "expiry",
+            "strike",
+            "option_type",
+        )
+    )
+
+    with open(filename, "w", newline="") as f:
+        csv.writer(f).writerow(header)

@@ -1,4 +1,3 @@
-import numpy as np
 from sortedcontainers import SortedDict
 
 
@@ -16,10 +15,9 @@ class Book:
 
     # Fetches the best price of the queue
     def fetch_price(self):
-        if self.is_buy:
-            return self.queue.peekitem()[0]
-        else:
-            return self.queue.peekitem(0)[0]
+        if not self.queue:
+            return 0
+        return self.queue.peekitem(-1 if self.is_buy else 0)[0]
 
     def add(self, order):
         # Adds order to stop loss queue
@@ -50,63 +48,63 @@ class Book:
         # Removes order from queue
         elif order_number in self.orders:
             price = self.orders[order_number]
-            for i in range(len(self.queue[price])):
-                if self.queue[price][i].order_number == order_number:
-                    if not volume or self.queue[price][i].volume_original == volume:
-                        self.queue[price].pop(i)
+            target_list = self.queue[price]
+            for i, order in enumerate(target_list):
+                if order.order_number == order_number:
+                    if not volume or order.volume_original == volume:
+                        target_list.pop(i)
                         del self.orders[order_number]
                         del self.ticker.repository[order_number]
                     else:
-                        self.queue[price][i].volume_original -= volume
+                        target_list[i].volume_original -= volume
                     break
-            if not len(self.queue[price]):
+            if not target_list:
                 del self.queue[price]
 
-    def fetch_data(self, top):
-        volumes_original = np.full((len(top), 2, 3), 0)
-        volumes_disclosed = np.full((len(top), 2, 3), 0)
+    def _flatten(self, nested_list):
+        """Helper to flatten multi-dimensional lists."""
+        flat = []
+        for item in nested_list:
+            if isinstance(item, list):
+                flat.extend(self._flatten(item))
+            else:
+                flat.append(item)
+        return flat
 
+    def fetch_data(self, top):
+        # Initialize 3D structures: [top_index][algo_index][client_index]
+        # Equivalent to np.full((len(top), 2, 3), 0)
+        v_orig = [[[0 for _ in range(3)] for _ in range(2)] for _ in range(len(top))]
+        v_disc = [[[0 for _ in range(3)] for _ in range(2)] for _ in range(len(top))]
+
+        # Initialize 2D structure for prices: [algo_index][client_index]
+        default_price = 0 if self.is_buy else float("inf")
+        prices = [[default_price for _ in range(3)] for _ in range(2)]
+
+        keys = list(self.queue.keys())
         if self.is_buy:
-            idx = 0
-            prices = np.full((2, 3), 0)
-            keys = list(self.queue.keys())
             keys.reverse()
-            for key in keys:
-                for order in self.queue[key]:
-                    for i in range(len(top)):
-                        if idx < top[i]:
-                            volumes_original[i][order.algo][
-                                order.client - 1
-                            ] += order.volume_original
-                            volumes_disclosed[i][order.algo][order.client - 1] += min(
-                                order.volume_disclosed, order.volume_original
-                            )
-                    prices[order.algo][order.client - 1] = max(
-                        order.limit_price, prices[order.algo][order.client - 1]
-                    )
-                idx += 1
-                if idx >= top[-1]:
-                    break
-        else:
-            idx = 0
-            prices = np.full((2, 3), np.inf)
-            for key in self.queue.keys():
-                for order in self.queue[key]:
-                    for i in range(len(top)):
-                        if idx < top[i]:
-                            volumes_original[i][order.algo][
-                                order.client - 1
-                            ] += order.volume_original
-                            volumes_disclosed[i][order.algo][order.client - 1] += min(
-                                order.volume_disclosed, order.volume_original
-                            )
-                    prices[order.algo][order.client - 1] = min(
-                        order.limit_price, prices[order.algo][order.client - 1]
-                    )
-                idx += 1
-                if idx >= top[-1]:
-                    break
-        return (
-            np.concatenate((volumes_original.flatten(), volumes_disclosed.flatten())),
-            prices.flatten(),
-        )
+
+        idx = 0
+        for key in keys:
+            for order in self.queue[key]:
+                a_idx = order.algo
+                c_idx = order.client - 1
+
+                for i in range(len(top)):
+                    if idx < top[i]:
+                        v_orig[i][a_idx][c_idx] += order.volume_original
+                        v_disc[i][a_idx][c_idx] += min(
+                            order.volume_disclosed, order.volume_original
+                        )
+
+                if self.is_buy:
+                    prices[a_idx][c_idx] = max(order.limit_price, prices[a_idx][c_idx])
+                else:
+                    prices[a_idx][c_idx] = min(order.limit_price, prices[a_idx][c_idx])
+
+            idx += 1
+            if idx >= top[-1]:
+                break
+
+        return (self._flatten(v_orig) + self._flatten(v_disc), self._flatten(prices))

@@ -1,9 +1,9 @@
+import csv
 import sys
-import time as tm
-from datetime import time
+import time
 
-from reader import add_time, clock_time, get_order, get_trade, line_reader
-from Structs import DataTree
+from reader import get_order, get_trade, line_reader
+from Structs import Data
 from writer import write_header
 
 # Input Parameters
@@ -20,7 +20,7 @@ write_header(output_file)
 order_reader = line_reader(orders_file)
 trade_reader = line_reader(trades_file)
 
-MARKET_OPENS = time(9, 15, 0)
+MARKET_OPENS = 33300  # 09:15:00 in seconds since midnight
 
 
 def add_order(ticker, order):
@@ -41,57 +41,62 @@ trade = None
 threshold = MARKET_OPENS
 period = 0
 
-start = tm.time()
-data = DataTree()
+start = time.time()
+data = Data()
+get_ticker = data.get_ticker
 order = get_order(order_reader)
-while True:
-    trade = get_trade(trade_reader)
-    if trade is None:
-        print("Writing final snapshot at end of iter")
-        data.write_snapshot(date, output_file, period)
-        break
-    converted_time = clock_time(trade.trade_time)
-    trade_ticker = data.get_ticker(trade)
 
-    while order and order.order_time < trade.trade_time:
-        min_time = min(converted_time, threshold)
-        while order and clock_time(order.order_time) < min_time:
-            prev_order = order
-            order_ticker = data.get_ticker(order)
-            order_number = order.order_number
-            if order_number in order_ticker.repository:
-                prev_order = order_ticker.repository[order_number]
 
-                if order.activity_type == "CANCEL":
-                    delete_order(order_ticker, prev_order)
+with open(output_file, mode="a", newline="") as file:
+    writer = csv.writer(file)
+
+    while True:
+        trade = get_trade(trade_reader)
+        if trade is None:
+            data.write_snapshot(date, writer, period)
+            break
+        converted_time = (trade.trade_time / 65536) % 86400
+        trade_ticker = get_ticker(trade)
+
+        while order and order.order_time < trade.trade_time:
+            min_time = min(converted_time, threshold)
+            while order and (order.order_time / 65536) % 86400 < min_time:
+                prev_order = order
+                order_ticker = get_ticker(order)
+                order_number = order.order_number
+                if order_number in order_ticker.repository:
+                    prev_order = order_ticker.repository[order_number]
+
+                    if order.activity_type == "CANCEL":
+                        delete_order(order_ticker, prev_order)
+                        order = get_order(order_reader)
+                        continue
+
+                    elif order.activity_type == "MODIFY":
+                        delete_order(order_ticker, prev_order)
+
+                if not order.is_stop_loss and (order.is_mkt_order or order.is_ioc):
                     order = get_order(order_reader)
                     continue
 
-                elif order.activity_type == "MODIFY":
-                    delete_order(order_ticker, prev_order)
-
-            if not order.is_stop_loss and (order.is_mkt_order or order.is_ioc):
+                # Adds order
+                add_order(order_ticker, order)
+                order_ticker.repository[order_number] = order
                 order = get_order(order_reader)
-                continue
 
-            # Adds order
-            add_order(order_ticker, order)
-            order_ticker.repository[order_number] = order
-            order = get_order(order_reader)
+            if min_time != converted_time:
+                print("Writing snapshot at time:", min_time)
+                data.write_snapshot(date, writer, period)
+                period += 1
+                threshold += INTERVAL
 
-        if min_time != converted_time:
-            print("Writing snapshot at", min_time)
-            data.write_snapshot(date, output_file, period)
-            period += 1
-            threshold = add_time(threshold, INTERVAL)
+        volume = trade.trade_quantity
+        buyer = trade.buy_order_number
+        seller = trade.sell_order_number
+        trade_ticker.buy_book.delete(buyer, False, volume)
+        trade_ticker.sell_book.delete(seller, False, volume)
 
-    volume = trade.trade_quantity
-    buyer = trade.buy_order_number
-    seller = trade.sell_order_number
-    trade_ticker.buy_book.delete(buyer, False, volume)
-    trade_ticker.sell_book.delete(seller, False, volume)
-
-end = tm.time()
+end = time.time()
 elapsed_time = end - start
 print("Processing Complete:", date)
 print(f"Elapsed time: {elapsed_time:.6f} seconds")
