@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 
-FILES = 1
+FILES = 10
 DATES = [
     "03012022",
 ]
@@ -21,7 +21,7 @@ def run_command(cmd):
     print(f"Executing: {cmd} on Process ID {process_id}")
 
     # Execute the command
-    result = subprocess.run(cmd, shell=False, text=True)
+    result = subprocess.run(cmd, shell=True, text=True)
     if not result.returncode:
         print(f"[Process {process_id}] Success! Output:\n{result.stdout.strip()}")
     else:
