@@ -13,7 +13,7 @@ commands = []
 for date in DATES:
     os.makedirs(os.path.dirname(f"LOB/{date}/"), exist_ok=True)
     for num in range(FILES):
-        commands.append(f"{sys.executable} main.py {date} {num+1} {INTERVAL}")
+        commands.append([sys.executable, "main.py", date, str(num+1), INTERVAL])
 
 
 def run_command(cmd):
@@ -22,7 +22,7 @@ def run_command(cmd):
     print(f"Executing: {cmd} on Process ID {process_id}")
 
     # Execute the command
-    result = subprocess.run(cmd, shell=True, text=True, capture_output=True)
+    result = subprocess.run(cmd, shell=False, text=True, capture_output=False)
     if not result.returncode:
         print(f"[Process {process_id}] Success! Output:\n{result.stdout.strip()}")
     else:
