@@ -7,14 +7,14 @@ from Structs import DataTree
 from writer import write_header
 
 # Input Parameters
-iter = 1
 date = sys.argv[1]
-INTERVAL = int(sys.argv[2])
+num = int(sys.argv[2])
+INTERVAL = int(sys.argv[3])
 
 # File Names
-orders_file = f"FAO_Orders_{date}_{iter:02}.DAT.gz"
-trades_file = f"FAO_Trades_{date}_{iter:02}.DAT.gz"
-output_file = f"LOB/LOB_{date}.csv"
+orders_file = f"{date}/FAO_Orders_{date}_{num:02}.DAT.gz"
+trades_file = f"{date}/FAO_Trades_{date}_{num:02}.DAT.gz"
+output_file = f"LOB/{date}/LOB_{date}_{num:02}.csv"
 
 write_header(output_file)
 order_reader = line_reader(orders_file)
