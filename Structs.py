@@ -4,6 +4,8 @@ DATA_POINTS = [1, 5]
 
 
 class Identifier:
+    __slots__ = ("description", "buy_book", "sell_book", "repository")
+
     def __init__(self, description):
         self.description = description
         self.buy_book = Book(self, True)
@@ -11,52 +13,60 @@ class Identifier:
         self.repository = {}
 
     def write_snapshot(self, date, writer, period):
-        if self.buy_book.queue and self.sell_book.queue:
-            bid_vols, bid_prices = self.buy_book.fetch_data(DATA_POINTS)
-            best_bid = self.buy_book.fetch_price()
-            ask_vols, ask_prices = self.sell_book.fetch_data(DATA_POINTS)
-            best_ask = self.sell_book.fetch_price()
-            spread = best_ask - best_bid
+        buy_book = self.buy_book
+        sell_book = self.sell_book
 
-            row = (
-                bid_vols
-                + [best_bid]
-                + bid_prices
-                + ask_vols
-                + [best_ask]
-                + ask_prices
-                + [spread, period]
+        if not buy_book.queue or not sell_book.queue:
+            return
+
+        bid_vols, bid_prices = buy_book.fetch_data(DATA_POINTS)
+        ask_vols, ask_prices = sell_book.fetch_data(DATA_POINTS)
+
+        best_bid = buy_book.fetch_price()
+        best_ask = sell_book.fetch_price()
+
+        spread = best_ask - best_bid
+
+        row = (
+            bid_vols
+            + [best_bid]
+            + bid_prices
+            + ask_vols
+            + [best_ask]
+            + ask_prices
+            + [spread, period]
+        )
+
+        cleaned = [
+            0 if v == float("inf") or v == float("-inf") else int(v) for v in row
+        ]
+        desc = self.description
+        cleaned.extend(
+            (
+                date,
+                desc[:10],
+                desc[10:16],
+                desc[16:25],
+                desc[25:33],
+                desc[33:35],
             )
+        )
 
-            cleaned_row = []
-            for val in row:
-                if val == float("inf") or val == float("-inf"):
-                    cleaned_row.append(0)
-                else:
-                    cleaned_row.append(int(val))
-
-            final_row = (
-                cleaned_row
-                + [date]
-                + [
-                    self.description[:10],
-                    self.description[10:16],
-                    self.description[16:25],
-                    self.description[25:33],
-                    self.description[33:35],
-                ]
-            )
-            writer.writerow(final_row)
+        writer.writerow(cleaned)
 
 
 class Data:
+    __slots__ = ("identifiers",)
+
     def __init__(self):
         self.identifiers = {}
 
-    def get_ticker(self, ticker) -> Identifier:
-        if ticker.identifier not in self.identifiers:
-            self.identifiers[ticker.identifier] = Identifier(ticker.identifier)
-        return self.identifiers[ticker.identifier]
+    def get_ticker(self, ticker):
+        key = ticker.identifier
+        d = self.identifiers
+        if key not in d:
+            d[key] = Identifier(key)
+        return d[key]
 
     def write_snapshot(self, date, writer, period):
         for identifier in self.identifiers.values():

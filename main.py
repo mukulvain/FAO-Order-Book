@@ -22,21 +22,6 @@ trade_reader = line_reader(trades_file)
 
 MARKET_OPENS = 33300  # 09:15:00 in seconds since midnight
 
-
-def add_order(ticker, order):
-    if order.is_buy:
-        ticker.buy_book.add(order)
-    else:
-        ticker.sell_book.add(order)
-
-
-def delete_order(ticker, order):
-    if order.is_buy:
-        ticker.buy_book.delete(order.order_number, order.is_stop_loss)
-    else:
-        ticker.sell_book.delete(order.order_number, order.is_stop_loss)
-
-
 trade = None
 threshold = MARKET_OPENS
 period = 0
@@ -46,7 +31,6 @@ data = Data()
 get_ticker = data.get_ticker
 order = get_order(order_reader)
 
-
 with open(output_file, mode="a", newline="") as file:
     writer = csv.writer(file)
 
@@ -55,46 +39,61 @@ with open(output_file, mode="a", newline="") as file:
         if trade is None:
             data.write_snapshot(date, writer, period)
             break
-        converted_time = (trade.trade_time / 65536) % 86400
+        trade_time = trade.trade_time_seconds
         trade_ticker = get_ticker(trade)
 
-        while order and order.order_time < trade.trade_time:
-            min_time = min(converted_time, threshold)
-            while order and (order.order_time / 65536) % 86400 < min_time:
-                prev_order = order
+        while order and order.order_time_seconds < trade_time:
+            min_time = threshold if threshold < trade_time else trade_time
+
+            while order and order.order_time_seconds < min_time:
                 order_ticker = get_ticker(order)
                 order_number = order.order_number
-                if order_number in order_ticker.repository:
-                    prev_order = order_ticker.repository[order_number]
+                repo = order_ticker.repository
+                prev_order = repo.get(order_number)
 
+                if prev_order is not None:
                     if order.activity_type == "CANCEL":
-                        delete_order(order_ticker, prev_order)
+                        if prev_order.is_buy:
+                            order_ticker.buy_book.delete(
+                                prev_order.order_number, prev_order.is_stop_loss
+                            )
+                        else:
+                            order_ticker.sell_book.delete(
+                                prev_order.order_number, prev_order.is_stop_loss
+                            )
                         order = get_order(order_reader)
                         continue
 
                     elif order.activity_type == "MODIFY":
-                        delete_order(order_ticker, prev_order)
+                        if prev_order.is_buy:
+                            order_ticker.buy_book.delete(
+                                prev_order.order_number, prev_order.is_stop_loss
+                            )
+                        else:
+                            order_ticker.sell_book.delete(
+                                prev_order.order_number, prev_order.is_stop_loss
+                            )
 
                 if not order.is_stop_loss and (order.is_mkt_order or order.is_ioc):
                     order = get_order(order_reader)
                     continue
 
-                # Adds order
-                add_order(order_ticker, order)
-                order_ticker.repository[order_number] = order
+                if order.is_buy:
+                    order_ticker.buy_book.add(order)
+                else:
+                    order_ticker.sell_book.add(order)
+                repo[order_number] = order
                 order = get_order(order_reader)
 
-            if min_time != converted_time:
+            if min_time != trade_time:
                 print("Writing snapshot at time:", min_time)
                 data.write_snapshot(date, writer, period)
                 period += 1
                 threshold += INTERVAL
 
         volume = trade.trade_quantity
-        buyer = trade.buy_order_number
-        seller = trade.sell_order_number
-        trade_ticker.buy_book.delete(buyer, False, volume)
-        trade_ticker.sell_book.delete(seller, False, volume)
+        trade_ticker.buy_book.delete(trade.buy_order_number, False, volume)
+        trade_ticker.sell_book.delete(trade.sell_order_number, False, volume)
 
 end = time.time()
 elapsed_time = end - start
