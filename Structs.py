@@ -27,15 +27,15 @@ class Identifier:
 
         spread = best_ask - best_bid
 
-        row = (
-            bid_vols
-            + ask_vols
-            + [best_bid]
-            + bid_prices
-            + [best_ask]
-            + ask_prices
-            + [spread, period]
-        )
+        row = []
+        row.extend(bid_vols)
+        row.extend(ask_vols)
+        row.append(best_bid)
+        row.extend(bid_prices)
+        row.append(best_ask)
+        row.extend(ask_prices)
+        row.append(spread)
+        row.append(period)
 
         cleaned = [
             0 if v == float("inf") or v == float("-inf") else int(v) for v in row

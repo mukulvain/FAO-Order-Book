@@ -56,11 +56,11 @@ with open(output_file, mode="a", newline="") as file:
                     if order.activity_type == "CANCEL":
                         if prev_order.is_buy:
                             order_ticker.buy_book.delete(
-                                prev_order.order_number, prev_order.is_stop_loss
+                                order_number, prev_order.is_stop_loss
                             )
                         else:
                             order_ticker.sell_book.delete(
-                                prev_order.order_number, prev_order.is_stop_loss
+                                order_number, prev_order.is_stop_loss
                             )
                         order = get_order(order_reader)
                         continue
@@ -68,11 +68,11 @@ with open(output_file, mode="a", newline="") as file:
                     elif order.activity_type == "MODIFY":
                         if prev_order.is_buy:
                             order_ticker.buy_book.delete(
-                                prev_order.order_number, prev_order.is_stop_loss
+                                order_number, prev_order.is_stop_loss
                             )
                         else:
                             order_ticker.sell_book.delete(
-                                prev_order.order_number, prev_order.is_stop_loss
+                                order_number, prev_order.is_stop_loss
                             )
 
                 if not order.is_stop_loss and (order.is_mkt_order or order.is_ioc):

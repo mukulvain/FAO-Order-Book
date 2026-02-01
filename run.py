@@ -24,7 +24,7 @@ def run_command(cmd):
     # Execute the command
     result = subprocess.run(cmd, shell=False, text=True, capture_output=False)
     if not result.returncode:
-        print(f"[Process {process_id}] Success! Output:\n{result.stdout.strip()}")
+        print(f"[Process {process_id}] Success! Output:\n{result.stdout}")
     else:
         print(f"[Process {process_id}] ERROR (Exit Code {result.returncode})")
         print(f"--- Standard Error ---\n{result.stderr.strip()}")

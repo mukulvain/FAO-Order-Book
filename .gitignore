@@ -2,3 +2,4 @@ venv
 pypy_venv
 __pycache__/
 **.DAT.gz
+**.csv
