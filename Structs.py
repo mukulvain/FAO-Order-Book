@@ -29,9 +29,9 @@ class Identifier:
 
         row = (
             bid_vols
+            + ask_vols
             + [best_bid]
             + bid_prices
-            + ask_vols
             + [best_ask]
             + ask_prices
             + [spread, period]

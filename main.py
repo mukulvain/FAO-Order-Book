@@ -42,10 +42,11 @@ with open(output_file, mode="a", newline="") as file:
         trade_time = trade.trade_time_seconds
         trade_ticker = get_ticker(trade)
 
-        while order and order.order_time_seconds < trade_time:
+        while order and order.order_time_seconds <= trade_time:
             min_time = threshold if threshold < trade_time else trade_time
 
-            while order and order.order_time_seconds < min_time:
+            while order and order.order_time_seconds <= min_time:
+
                 order_ticker = get_ticker(order)
                 order_number = order.order_number
                 repo = order_ticker.repository
@@ -86,7 +87,6 @@ with open(output_file, mode="a", newline="") as file:
                 order = get_order(order_reader)
 
             if min_time != trade_time:
-                print("Writing snapshot at time:", min_time)
                 data.write_snapshot(date, writer, period)
                 period += 1
                 threshold += INTERVAL
